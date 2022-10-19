@@ -72,5 +72,11 @@ class CallDetectorManager {
       this.subscription = undefined
     }
   }
+
+  getCalls = () => {
+    if (Platform.OS === 'ios') {
+      return NativeCallDetector.getCalls()
+    }
+  }
 }
 export default module.exports = CallDetectorManager;

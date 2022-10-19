@@ -42,7 +42,40 @@ RCT_EXPORT_METHOD(startListener) {
     self.callObserver = [[CXCallObserver alloc] init];
     __typeof(self) weakSelf = self;
     [self.callObserver setDelegate:weakSelf queue:nil];
+
 }
+
++ (NSMutableArray *) getCalls
+{
+#ifdef DEBUG
+    NSLog(@"[CallDetectionManager][getCalls]");
+#endif
+    CXCallObserver *callObserver = [[CXCallObserver alloc] init];
+    NSMutableArray *currentCalls = [NSMutableArray array];
+    for(CXCall *call in callObserver.calls){
+        NSString *uuidString = [call.UUID UUIDString];
+        NSDictionary *requestedCall= @{
+            @"callUUID": uuidString,
+            @"outgoing": call.outgoing? @YES : @NO,
+            @"onHold": call.onHold? @YES : @NO,
+            @"hasConnected": call.hasConnected ? @YES : @NO,
+            @"hasEnded": call.hasEnded ? @YES : @NO
+        };
+        [currentCalls addObject:requestedCall];
+    }
+    return currentCalls;
+}
+
+RCT_EXPORT_METHOD(getCalls:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+#ifdef DEBUG
+    NSLog(@"[CallDetectionManager][getCalls]");
+#endif
+    resolve([CallDetectionManager getCalls]);
+}
+
+
 
 RCT_EXPORT_METHOD(stopListener) {
     // Setup call tracking
@@ -52,12 +85,15 @@ RCT_EXPORT_METHOD(stopListener) {
 - (void)callObserver:(CXCallObserver *)callObserver callChanged:(CXCall *)call {
     if (call.hasEnded == true) {
       [self sendEventWithName:@"PhoneCallStateUpdate" body:@"Disconnected"];
-    } else if (call.hasConnected == true) {
-      [self sendEventWithName:@"PhoneCallStateUpdate" body:@"Connected"];
-    } else if (call.isOutgoing == true) {
+    }
+    if (call.isOutgoing == true && call.hasConnected == false && call.hasEnded == false) {
       [self sendEventWithName:@"PhoneCallStateUpdate" body:@"Dialing"];
-    } else {
+    }
+    if (call.isOutgoing == false && call.hasConnected == false) {
       [self sendEventWithName:@"PhoneCallStateUpdate" body:@"Incoming"];
+    }
+    if (call.hasEnded == false && call.hasConnected == true) {
+      [self sendEventWithName:@"PhoneCallStateUpdate" body:@"Connected"];
     }
 }
 
